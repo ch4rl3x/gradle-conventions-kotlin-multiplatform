@@ -1,3 +1,5 @@
+<a href="https://repo1.maven.org/maven2/de/charlex/conventions/kmp/"><img src="https://img.shields.io/maven-central/v/de.charlex.conventions.kmp/catalog" alt="Maven Central" /></a>
+
 # gradle-conventions-kotlin-multiplatform
 
 Shared Gradle convention plugins and version catalog for Kotlin Multiplatform
