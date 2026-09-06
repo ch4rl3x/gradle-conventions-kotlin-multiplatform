@@ -7,16 +7,18 @@ import org.gradle.kotlin.dsl.configure
 import java.net.URI
 
 /**
- * Root-project configuration: the Sonatype staging repository every library in
- * this group publishes through.
+ * The staging repository the whole build publishes through.
+ *
+ * Apply it to the root project. Counterpart to [PublishingConventionPlugin],
+ * which decides what an individual module publishes.
  *
  * Credentials come from local.properties first, then the environment, so the same
  * setup works locally and in CI.
  */
-class RootConventionPlugin : Plugin<Project> {
+class PublishingRepositoryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         check(this == rootProject) {
-            "de.charlex.convention.root has to be applied to the root project, not to ${project.path}"
+            "de.charlex.convention.publishing.repository has to be applied to the root project, not to ${project.path}"
         }
 
         pluginManager.apply("io.github.gradle-nexus.publish-plugin")

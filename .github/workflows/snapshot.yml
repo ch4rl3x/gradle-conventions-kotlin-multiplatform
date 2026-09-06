@@ -18,6 +18,50 @@ permissions:
   checks: write # required for test-reporter
 
 jobs:
+  # Repository-specific integration test: builds one minimal library per supported
+  # shape with these conventions and checks that each publishes something complete.
+  #
+  # Runs on ubuntu on purpose. What a KMP library publishes for its Apple targets is
+  # a .klib, and Kotlin/Native can generally produce those on any host -- only final
+  # binaries (frameworks, executables) require macOS, as do projects with their own
+  # cinterop or CocoaPods dependencies. These test projects have neither. If that
+  # turns out not to hold, switch to macos-latest and record why here.
+  test-projects:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ch4rl3x/maven-central-publish-pipeline/.github/actions/prepare@v1
+
+      # test-projects has its own wrapper so it can be opened in an IDE on its own.
+      # A drifting Gradle version fails with errors that point nowhere near the
+      # cause, so compare the two up front.
+      - name: Check wrapper versions match
+        run: |
+          diff gradle/wrapper/gradle-wrapper.properties \
+               test-projects/gradle/wrapper/gradle-wrapper.properties
+          chmod +x test-projects/gradlew test-projects/verify-artifacts.sh
+
+      - name: Publish jvm-library
+        working-directory: test-projects
+        run: ./gradlew :jvm-library:publishToMavenLocal
+
+      - name: Publish android-library
+        working-directory: test-projects
+        run: ./gradlew :android-library:publishToMavenLocal
+
+      - name: Publish kmp-library
+        working-directory: test-projects
+        run: ./gradlew :kmp-library:publishToMavenLocal
+
+      - name: Verify artifacts in mavenLocal
+        working-directory: test-projects
+        run: ./verify-artifacts.sh
+
+  # Only after the conventions have been shown to produce working builds does a
+  # snapshot go out. A caller job may depend on other jobs, so this gates the whole
+  # shared workflow including its publish step.
   ci:
+    needs: [ test-projects ]
     uses: ch4rl3x/maven-central-publish-pipeline/.github/workflows/jvm-snapshot.yml@v1
     secrets: inherit

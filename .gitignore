@@ -1,5 +1,8 @@
-.DS_Store
-build/
-.gradle/
+.idea
+.gradle
+.kotlin
+build
+.hprof
+**/.DS_Store
+*.hprof
 local.properties
-.kotlin/

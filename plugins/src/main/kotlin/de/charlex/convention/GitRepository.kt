@@ -3,19 +3,13 @@ package de.charlex.convention
 import org.gradle.api.Project
 import java.io.File
 
-/**
- * URL of the `origin` remote, normalised to a browsable https URL such as
- * `https://github.com/owner/repo`, or null when there is no git checkout or no
- * origin remote.
- *
- * Read from .git/config instead of shelling out to git, so it needs no git on
- * PATH and spawns no process during configuration.
- */
 internal fun Project.originUrl(): String? {
-    val gitDir = File(rootDir, ".git")
-    if (!gitDir.isDirectory) return null // plain checkouts only; worktrees store a file here
+    val gitPath = generateSequence(rootDir) { it.parentFile }
+        .map { File(it, ".git") }
+        .firstOrNull { it.exists() }
+        ?: return null
 
-    val config = File(gitDir, "config")
+    val config = File(resolveGitDir(gitPath) ?: return null, "config")
     if (!config.isFile) return null
 
     var inOrigin = false
@@ -32,10 +26,24 @@ internal fun Project.originUrl(): String? {
     return null
 }
 
-/**
- * `git@host:owner/repo.git`, `ssh://git@host/owner/repo.git` and
- * `https://host/owner/repo.git` all become `https://host/owner/repo`.
- */
+private fun resolveGitDir(gitPath: File): File? {
+    if (gitPath.isDirectory) return gitPath
+
+    // A worktree or submodule stores `gitdir: <path>` in a file instead.
+    val target = gitPath.readLines()
+        .firstOrNull { it.startsWith("gitdir:") }
+        ?.substringAfter(':')
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?: return null
+
+    val linked = File(target).let { if (it.isAbsolute) it else File(gitPath.parentFile, target) }
+    if (File(linked, "config").isFile) return linked
+
+    // .git/worktrees/<name> -> .git
+    return linked.parentFile?.parentFile?.takeIf { File(it, "config").isFile }
+}
+
 private fun normaliseRemote(remote: String): String {
     var url = remote.removeSuffix(".git")
     url = when {
@@ -47,9 +55,7 @@ private fun normaliseRemote(remote: String): String {
     return url
 }
 
-/** `scm:git:` connection string for a normalised https repository URL. */
 internal fun scmConnection(httpsUrl: String): String = "scm:git:$httpsUrl.git"
 
-/** `scm:git:ssh://` developer connection string for a normalised https repository URL. */
 internal fun scmDeveloperConnection(httpsUrl: String): String =
     "scm:git:ssh://git@${httpsUrl.removePrefix("https://")}.git"

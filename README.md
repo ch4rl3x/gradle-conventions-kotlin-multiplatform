@@ -2,61 +2,40 @@
 
 # gradle-conventions-kotlin-multiplatform
 
-Shared Gradle convention plugins and version catalog for Kotlin Multiplatform
-libraries published to Maven Central.
+Shared Gradle setup for the libraries published to Maven Central: build settings,
+publishing and a version catalog with the build toolchain.
 
-Nothing here is tied to a particular group or GitHub account: the Android
-namespace comes from a Gradle property, and the POM's `url` and `scm` are derived
-from the repository's own git remote.
-
-Published as two artifacts at the same version:
+Two artifacts, always released at the same version:
 
 | Artifact | Contents |
 |---|---|
-| `de.charlex.conventions.kmp:plugins` | the six convention plugins below |
-| `de.charlex.conventions.kmp:catalog` | the shared build toolchain (`gradle/libs.versions.toml`) |
+| `de.charlex.conventions.kmp:plugins` | the convention plugins |
+| `de.charlex.conventions.kmp:catalog` | the shared toolchain (`gradle/libs.versions.toml`) |
 
-They are versioned together on purpose. The plugins compile against the AGP,
-Kotlin and Dokka APIs via `compileOnly`, so a catalog that pins different
-versions than the plugins were built against fails at configuration time.
+Needs **Gradle 9.6 or newer**, because the catalog pins AGP 9.
 
 ## Plugins
 
 | ID | |
 |---|---|
-| `de.charlex.convention.root` | root project: applies and configures `nexusPublishing` for the Sonatype staging repository |
-| `de.charlex.convention.android.library` | `compileSdk`/`minSdk`, optional namespace convention, consumer ProGuard rules |
-| `de.charlex.convention.android.application` | same for application modules, plus `targetSdk` |
-| `de.charlex.convention.kotlin.multiplatform` | KMP plus the mobile convention below |
-| `de.charlex.convention.kotlin.multiplatform.mobile` | Android and iOS targets, default hierarchy template, JVM toolchain |
-| `de.charlex.convention.centralPublish` | javadoc jar, POM, signing, Maven Central publication |
+| `de.charlex.convention.jvm.library` | plain JVM library |
+| `de.charlex.convention.android.library` | Android library |
+| `de.charlex.convention.kmp.library` | Kotlin Multiplatform for Android and iOS |
+| `de.charlex.convention.publishing` | publishes a module to Maven Central |
+| `de.charlex.convention.publishing.repository` | root project: the Sonatype staging repository |
 
-The mobile plugin declares `iosX64`, `iosArm64` and `iosSimulatorArm64` itself, so
-a library module needs no `kotlin { }` block for its platforms. It skips the iOS
-targets when `com.android.application` is applied, since an Android app module has
-no iOS counterpart. Configuring a framework binary is left to whichever module is
-actually linked from Xcode — that module calls `binaries.framework { }` itself,
-where it can also set `baseName` and exports.
+`kmp.library` creates the Android and iOS targets itself -- a module needs no
+`kotlin { }` block for its platforms.
 
-Compose is deliberately not among them: applying `org.jetbrains.compose` is a
-two-line, policy-free step, and most KMP libraries do not use Compose at all. The
-Compose *compiler* plugin does live in the shared catalog, because it ships with
-Kotlin and is always on the Kotlin version.
+Compose is not among them. Applying `org.jetbrains.compose` is two policy-free
+lines, and most libraries do not use Compose. The Compose *compiler* plugin is in
+the catalog, since it ships with Kotlin and follows the Kotlin version.
 
-## Usage
+## Setup
 
-`settings.gradle.kts` of the consuming repository:
+`settings.gradle.kts`:
 
 ```kotlin
-pluginManagement {
-    repositories { mavenCentral(); google(); gradlePluginPortal() }
-    plugins {
-        id("de.charlex.convention.root") version "<version>"
-        id("de.charlex.convention.android.library") version "<version>"
-        // ... the plugins this repository applies
-    }
-}
-
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories { mavenCentral(); google() }
@@ -69,40 +48,67 @@ dependencyResolutionManagement {
 }
 ```
 
-The shared catalog is imported as `conventions`, not as `libs`: a repository keeps
-its own `gradle/libs.versions.toml` for its own dependencies, and a `version.ref`
-cannot cross catalog boundaries. `libs` is what this library uses, `conventions`
-is the shared toolchain.
+The shared catalog is imported as `conventions`, not as `libs`. A repository keeps
+its own `libs.versions.toml` for its own dependencies -- `libs` is what this
+library uses, `conventions` is the shared toolchain. (A `version.ref` cannot cross
+catalog boundaries, so they have to be separate.)
 
-For a migration period the plugins fall back to a catalog named `libs` when no
-`conventions` catalog exists, so repositories can be switched over one at a time.
+The convention plugins go into the repository's own `libs.versions.toml`:
 
-The catalog has to provide `compileSdk`, `targetSdk`, `minSdk` and `jvmTarget`;
-a missing entry fails with a message naming it.
+```toml
+[versions]
+conventions = "<version>"   # same as the catalog coordinate above
 
-### Android namespace
-
-`de.charlex.convention.android.library` derives the namespace from the Gradle
-property `convention.android.namespacePrefix` and the module name — prefix
-`com.example` and module `my-library` give `com.example.my.library`:
-
-```properties
-convention.android.namespacePrefix=com.example
+[plugins]
+convention-publishing-repository = { id = "de.charlex.convention.publishing.repository", version.ref = "conventions" }
+convention-kmp-library = { id = "de.charlex.convention.kmp.library", version.ref = "conventions" }
+convention-publishing = { id = "de.charlex.convention.publishing", version.ref = "conventions" }
 ```
 
-Without the property the plugin leaves `namespace` alone, and the module sets it.
+Root `build.gradle.kts`:
 
-### Publishing
+```kotlin
+plugins {
+    // AGP and KGP: the conventions compile against them but leave the version
+    // to you, so they have to be on the buildscript classpath.
+    alias(conventions.plugins.android.library) apply false
+    alias(conventions.plugins.kmp) apply false
 
-`de.charlex.convention.centralPublish` adds a `mavenPublishConfig` extension. Only
-`name` and `description` are usually needed — `url` and the whole `scm` block
-default to the `origin` remote read from `.git/config`, and the licence defaults to
-Apache-2.0:
+    alias(libs.plugins.convention.publishing.repository)
+    alias(libs.plugins.convention.kmp.library) apply false
+    alias(libs.plugins.convention.publishing) apply false
+}
+
+subprojects {
+    group = "de.charlex.something"
+}
+```
+
+And a module:
+
+```kotlin
+plugins {
+    alias(libs.plugins.convention.kmp.library)
+    alias(libs.plugins.convention.publishing)
+}
+
+mavenPublishConfig {
+    name = "my-library"
+    description = "What it does."
+}
+```
+
+## Publishing
+
+`url` and the whole `scm` block default to the `origin` remote from `.git/config`,
+the licence defaults to Apache-2.0. Usually only `name` and `description` are
+needed. Everything else is optional:
 
 ```kotlin
 mavenPublishConfig {
     name = "my-library"
     description = "What it does."
+    artifactId = "published-under-another-name"
 
     developers {
         developer {
@@ -112,20 +118,53 @@ mavenPublishConfig {
         }
     }
 
-    // optional: licenseName, licenseUrl, url, scm { }
+    // licenseName, licenseUrl, url, scm { } if the defaults do not fit
 }
 ```
 
-Signing uses `SIGNING_KEY_ID`, `SIGNING_KEY` and `SIGNING_KEY_PASSWORD`, taken from
-`local.properties` first and then the environment. Without a key signing is
-skipped rather than failing, so `publishToMavenLocal` works without credentials.
+Signing reads `SIGNING_KEY_ID`, `SIGNING_KEY` and `SIGNING_KEY_PASSWORD` from
+`local.properties` first, then the environment. Without a key nothing is signed
+instead of failing, so `publishToMavenLocal` works without credentials. The
+staging repository uses `OSSRH_USERNAME`, `OSSRH_PASSWORD` and
+`SONATYPE_STAGING_PROFILE_ID` the same way.
 
-## This repository cannot use its own plugins
+## Android namespace
 
-Gradle cannot `includeBuild` the build it is currently running, so the publishing
-setup in `build.gradle.kts` is written out by hand -- including
-`de.charlex.convention.centralPublish`, which it cannot apply to itself either.
+Set the Gradle property and the namespace follows the module name -- prefix
+`com.example` plus module `my-library` gives `com.example.my.library`:
 
-CI uses the `jvm-snapshot.yml` workflow from
-[maven-central-publish-pipeline](https://github.com/ch4rl3x/maven-central-publish-pipeline),
-which runs on `ubuntu-latest` — there are no Apple targets here.
+```properties
+convention.android.namespacePrefix=com.example
+```
+
+Without it the module sets its own `namespace`.
+
+## Catalog entries the plugins read
+
+`compileSdk`, `minSdk` and `jdk`. `jdk` drives the Gradle Java toolchain, from
+which AGP and Kotlin derive their bytecode target -- it is the single place the
+Java level is set.
+
+For a migration period the plugins fall back to a catalog named `libs` when there
+is no `conventions` catalog, so repositories can be switched over one at a time.
+
+## Test projects
+
+`test-projects/` holds one minimal library per shape -- JVM, Android and
+multiplatform -- built with these conventions and published to mavenLocal:
+
+```bash
+cd test-projects
+./gradlew :jvm-library:publishToMavenLocal
+./gradlew :android-library:publishToMavenLocal
+./gradlew :kmp-library:publishToMavenLocal
+./verify-artifacts.sh
+```
+
+`verify-artifacts.sh` checks that every expected publication exists and carries
+its main artifact, sources, javadoc and a POM with the required fields. CI runs
+the same steps and the snapshot only goes out afterwards.
+
+It is a separate Gradle build using `includeBuild("..")`, because a project cannot
+apply a plugin produced by the same build -- which is also why this repository
+writes its own publishing setup by hand in `build.gradle.kts`.

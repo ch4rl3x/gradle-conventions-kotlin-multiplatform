@@ -1,9 +1,11 @@
 package de.charlex.convention
 
+import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.Action
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Property
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
@@ -18,8 +20,15 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import groovy.util.Node
 import javax.inject.Inject
 
-
-class MavenCentralPublishConventionPlugin : Plugin<Project> {
+/**
+ * Publishes a module to Maven Central: sources and javadoc jars, POM, signing.
+ *
+ * Configure it through the `mavenPublishConfig` extension; `url`, `scm` and the
+ * licence have defaults, so usually only `name` and `description` are needed.
+ *
+ * Handles Kotlin Multiplatform, plain Android libraries and plain JVM libraries.
+ */
+class PublishingConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
         val extension = extensions.create(
             "mavenPublishConfig",
@@ -32,8 +41,6 @@ class MavenCentralPublishConventionPlugin : Plugin<Project> {
             apply("org.jetbrains.dokka")
         }
 
-        // withPlugin instead of an unconditional configure(): applying this plugin
-        // to a non-KMP project would otherwise fail with a missing extension.
         pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
             extensions.configure<KotlinMultiplatformExtension> {
                 if (pluginManager.hasPlugin("com.android.library")) {
@@ -44,8 +51,38 @@ class MavenCentralPublishConventionPlugin : Plugin<Project> {
             }
         }
 
-        // Defaults for url and scm come from the git remote, so they are correct
-        // for any repository instead of being guessed from the module name.
+        pluginManager.withPlugin("com.android.library") {
+            extensions.configure<LibraryExtension> {
+                publishing {
+                    singleVariant(ANDROID_RELEASE_VARIANT) {
+                        withSourcesJar()
+                    }
+                }
+            }
+
+            extensions.configure<PublishingExtension> {
+                publications.register(ANDROID_RELEASE_VARIANT, MavenPublication::class.java) {
+                    afterEvaluate {
+                        from(components.getByName(ANDROID_RELEASE_VARIANT))
+                        artifactId = extension.artifactId ?: project.name
+                    }
+                }
+            }
+        }
+
+        pluginManager.withPlugin("java-library") {
+            extensions.configure<JavaPluginExtension> {
+                withSourcesJar()
+            }
+
+            extensions.configure<PublishingExtension> {
+                publications.register(JVM_PUBLICATION, MavenPublication::class.java) {
+                    from(components.getByName("java"))
+                    afterEvaluate { artifactId = extension.artifactId ?: project.name }
+                }
+            }
+        }
+
         val repositoryUrl = originUrl()
 
         val javadocJar = tasks.register("javadocJar", Jar::class.java) {
@@ -81,7 +118,6 @@ class MavenCentralPublishConventionPlugin : Plugin<Project> {
                     withXml {
                         if (extension.developers.isNotEmpty()) {
                             val root = asNode()
-                            // Reuse an existing developers node instead of adding a second one
                             val existing = root.children().firstOrNull { child ->
                                 child is Node && child.name() == "developers"
                             } as Node?
@@ -99,8 +135,6 @@ class MavenCentralPublishConventionPlugin : Plugin<Project> {
         }
 
         extensions.configure<SigningExtension> {
-            // Without a key -- local builds, publishToMavenLocal -- signing stays off
-            // instead of failing.
             val signingKey = getLocalProperty("SIGNING_KEY") ?: System.getenv("SIGNING_KEY")
             if (signingKey != null) {
                 useInMemoryPgpKeys(
@@ -114,14 +148,15 @@ class MavenCentralPublishConventionPlugin : Plugin<Project> {
         }
 
 
-        //region Fix Gradle warning about signing tasks using publishing task outputs without explicit dependencies
-        // https://github.com/gradle/gradle/issues/26091
         tasks.withType<AbstractPublishToMaven>().configureEach {
             val signingTasks = tasks.withType<Sign>()
             mustRunAfter(signingTasks)
         }
-        //endregion
+    }
 
+    private companion object {
+        const val ANDROID_RELEASE_VARIANT = "release"
+        const val JVM_PUBLICATION = "maven"
     }
 }
 
@@ -140,6 +175,16 @@ abstract class MavenPublishExtension @Inject constructor(objects: ObjectFactory)
         get() = urlProperty.orNull
         set(value) = urlProperty.set(value)
     private val urlProperty: Property<String> = objects.property(String::class.java)
+
+    /**
+     * Maven artifactId. Defaults to the module name -- set it when the module is
+     * named differently from the artifact, e.g. module `:billing` published as
+     * `billing-suspend`.
+     */
+    var artifactId: String?
+        get() = artifactIdProperty.orNull
+        set(value) = artifactIdProperty.set(value)
+    private val artifactIdProperty: Property<String> = objects.property(String::class.java)
 
     /** SPDX-style licence name. Defaults to Apache-2.0. */
     var licenseName: String

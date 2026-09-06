@@ -1,6 +1,7 @@
 package de.charlex.convention
 
-import com.android.build.gradle.LibraryExtension
+import com.android.build.api.dsl.LibraryExtension
+import de.charlex.convention.config.configureJava
 import de.charlex.convention.config.configureKotlinAndroid
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -29,6 +30,8 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                     namespace = "$namespacePrefix.${project.name.replace("-", ".")}"
                 }
             }
+
+            configureJava()
         }
     }
 

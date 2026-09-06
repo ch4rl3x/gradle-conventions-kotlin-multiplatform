@@ -16,44 +16,41 @@ java {
 
 kotlin {
     compilerOptions {
-        jvmTarget.set(JvmTarget.fromTarget(libs.versions.jvmTarget.get()))
+        jvmTarget.set(JvmTarget.fromTarget(libs.versions.jdk.get()))
     }
 }
 
 dependencies {
-    // compileOnly: the consuming build brings these plugins itself, declared as
-    // `apply false` in its root build script.
+    // compileOnly: AGP and KGP are declared by the consuming build, which owns
+    // their versions. Dokka and nexus-publish are implementation details of the
+    // publishing conventions, so they ship with the plugins instead.
     compileOnly(libs.kotlin.gradlePlugin)
     compileOnly(libs.android.gradlePlugin)
-    compileOnly(libs.nexusPublish.gradlePlugin)
-    compileOnly(libs.dokka.gradlePlugin)
+    implementation(libs.nexusPublish.gradlePlugin)
+    implementation(libs.dokka.gradlePlugin)
 }
 
 gradlePlugin {
     plugins {
-        register("root") {
-            id = "de.charlex.convention.root"
-            implementationClass = "de.charlex.convention.RootConventionPlugin"
+        register("publishingRepository") {
+            id = "de.charlex.convention.publishing.repository"
+            implementationClass = "de.charlex.convention.PublishingRepositoryConventionPlugin"
         }
         register("androidLibrary") {
             id = "de.charlex.convention.android.library"
             implementationClass = "de.charlex.convention.AndroidLibraryConventionPlugin"
         }
-        register("androidApplication") {
-            id = "de.charlex.convention.android.application"
-            implementationClass = "de.charlex.convention.AndroidApplicationConventionPlugin"
+        register("jvmLibrary") {
+            id = "de.charlex.convention.jvm.library"
+            implementationClass = "de.charlex.convention.JvmLibraryConventionPlugin"
         }
-        register("kotlinMultiplatform") {
-            id = "de.charlex.convention.kotlin.multiplatform"
-            implementationClass = "de.charlex.convention.KotlinMultiplatformConventionPlugin"
+        register("kmpLibrary") {
+            id = "de.charlex.convention.kmp.library"
+            implementationClass = "de.charlex.convention.KmpLibraryConventionPlugin"
         }
-        register("kotlinMultiplatformMobile") {
-            id = "de.charlex.convention.kotlin.multiplatform.mobile"
-            implementationClass = "de.charlex.convention.KotlinMultiplatformMobileConventionPlugin"
-        }
-        register("centralPublish") {
-            id = "de.charlex.convention.centralPublish"
-            implementationClass = "de.charlex.convention.MavenCentralPublishConventionPlugin"
+        register("publishing") {
+            id = "de.charlex.convention.publishing"
+            implementationClass = "de.charlex.convention.PublishingConventionPlugin"
         }
     }
 }

@@ -8,20 +8,19 @@
 
 [versions]
 
-compileSdk = "36"
-targetSdk = "36"
+compileSdk = "37"
 minSdk = "23"
 
-jvmTarget = "17"
+# JDK for the Gradle Java toolchain. AGP and Kotlin derive their bytecode
+# target from it, so this is the single place the Java level is set.
+jdk = "17"
 # https://developer.android.com/build/releases/gradle-plugin#compatibility
-agp = "8.11.2"
+agp = "9.4.0"
 
 #https://kotlinlang.org/docs/multiplatform-compatibility-guide.html
-kotlin = "2.2.20"
-# https://github.com/google/ksp
-ksp = "2.2.20-2.0.3"
+kotlin = "2.4.10"
 
-dokka = "2.0.0"
+dokka = "2.2.0"
 nexus-publish-plugin = "2.0.0"
 
 [libraries]
@@ -34,9 +33,7 @@ dokka-gradlePlugin = { module = "org.jetbrains.dokka:org.jetbrains.dokka.gradle.
 
 [plugins]
 
-android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kmp = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 # Ships with the Kotlin distribution and is always on the Kotlin version, so it
 # belongs next to `kotlin` -- unlike the Compose Multiplatform framework itself,
