@@ -12,9 +12,9 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 /**
  * Kotlin Multiplatform library targeting Android and iOS. No JVM target.
  *
- * Creates the Android and iOS targets itself, so a consuming module needs no
- * `kotlin { }` block for its platforms. The namespace follows the Gradle property
- * `convention.android.namespacePrefix`, as with the Android library convention.
+ * Creates the Android and iOS targets itself, so a consuming module declares no
+ * platforms of its own -- only its `namespace`, which ends up in the published
+ * AAR as the R class package.
  */
 class KmpLibraryConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -26,7 +26,6 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
 
             val compileSdk = libs.version("compileSdk").toInt()
             val minSdk = libs.version("minSdk").toInt()
-            val namespacePrefix = providers.gradleProperty(NAMESPACE_PREFIX_PROPERTY).orNull
 
             extensions.configure<KotlinMultiplatformExtension> {
                 applyDefaultHierarchyTemplate()
@@ -38,16 +37,9 @@ class KmpLibraryConventionPlugin : Plugin<Project> {
 
                 androidLibrary.compileSdk = compileSdk
                 androidLibrary.minSdk = minSdk
-                if (namespacePrefix != null) {
-                    androidLibrary.namespace = "$namespacePrefix.${project.name.replace("-", ".")}"
-                }
             }
 
             configureKotlinMultiplatform()
         }
-    }
-
-    private companion object {
-        const val NAMESPACE_PREFIX_PROPERTY = "convention.android.namespacePrefix"
     }
 }

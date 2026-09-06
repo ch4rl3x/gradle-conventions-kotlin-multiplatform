@@ -3,6 +3,10 @@ plugins {
     id("de.charlex.convention.publishing")
 }
 
+android {
+    namespace = "de.charlex.testproject.android"
+}
+
 mavenPublishConfig {
     name = "test-android-library"
     description = "Test project: plain Android library published through the conventions."

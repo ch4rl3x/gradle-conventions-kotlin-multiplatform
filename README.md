@@ -128,16 +128,6 @@ instead of failing, so `publishToMavenLocal` works without credentials. The
 staging repository uses `OSSRH_USERNAME`, `OSSRH_PASSWORD` and
 `SONATYPE_STAGING_PROFILE_ID` the same way.
 
-## Android namespace
-
-Set the Gradle property and the namespace follows the module name -- prefix
-`com.example` plus module `my-library` gives `com.example.my.library`:
-
-```properties
-convention.android.namespacePrefix=com.example
-```
-
-Without it the module sets its own `namespace`.
 
 ## Catalog entries the plugins read
 
