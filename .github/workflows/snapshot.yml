@@ -61,7 +61,7 @@ jobs:
   # Only after the conventions have been shown to produce working builds does a
   # snapshot go out. A caller job may depend on other jobs, so this gates the whole
   # shared workflow including its publish step.
-  ci:
+  snapshot:
     needs: [ test-projects ]
     uses: ch4rl3x/maven-central-publish-pipeline/.github/workflows/jvm-snapshot.yml@v1
     secrets: inherit
