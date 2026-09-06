@@ -1,0 +1,46 @@
+# Shared build toolchain for all de.charlex Kotlin Multiplatform libraries.
+# Published as de.charlex.conventions.kmp:catalog at the same version as the
+# plugins, so a consumer can never combine a catalog and a plugin build that were
+# compiled against different AGP/Kotlin APIs.
+#
+# Library dependencies of a single project do NOT belong here -- those stay in
+# the consuming repository's own libs.versions.toml.
+
+[versions]
+
+compileSdk = "36"
+targetSdk = "36"
+minSdk = "23"
+
+jvmTarget = "17"
+# https://developer.android.com/build/releases/gradle-plugin#compatibility
+agp = "8.11.2"
+
+#https://kotlinlang.org/docs/multiplatform-compatibility-guide.html
+kotlin = "2.2.20"
+# https://github.com/google/ksp
+ksp = "2.2.20-2.0.3"
+
+dokka = "2.0.0"
+nexus-publish-plugin = "2.0.0"
+
+[libraries]
+
+# Needed to compile the convention plugins against the Gradle plugin APIs.
+android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+nexusPublish-gradlePlugin = { module = "io.github.gradle-nexus:publish-plugin", version.ref = "nexus-publish-plugin" }
+dokka-gradlePlugin = { module = "org.jetbrains.dokka:org.jetbrains.dokka.gradle.plugin", version.ref = "dokka" }
+
+[plugins]
+
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kmp = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+# Ships with the Kotlin distribution and is always on the Kotlin version, so it
+# belongs next to `kotlin` -- unlike the Compose Multiplatform framework itself,
+# which is a per-project choice.
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+nexusPublish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "nexus-publish-plugin" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
