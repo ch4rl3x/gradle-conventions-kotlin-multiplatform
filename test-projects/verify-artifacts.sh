@@ -16,7 +16,6 @@ artifacts=(
   "test-android-library:aar"
   "kmp-library:jar"
   "kmp-library-android:aar"
-  "kmp-library-iosx64:klib"
   "kmp-library-iosarm64:klib"
   "kmp-library-iossimulatorarm64:klib"
 )
